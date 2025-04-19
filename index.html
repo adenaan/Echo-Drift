@@ -1,0 +1,208 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Echo Drift</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: black;
+      color: white;
+      font-family: sans-serif;
+      height: 100%;
+      width: 100%;
+    }
+    #gameCanvas {
+      display: block;
+      background: #111;
+      touch-action: none;
+    }
+    #ui {
+      position: absolute;
+      top: 20px;
+      width: 100%;
+      text-align: center;
+      z-index: 10;
+    }
+    #titleScreen {
+      position: absolute;
+      top: 40%;
+      width: 100%;
+      text-align: center;
+      z-index: 10;
+    }
+    #title {
+      font-size: 32px;
+      margin-bottom: 20px;
+    }
+    button {
+      font-size: 18px;
+      padding: 10px 20px;
+      margin: 5px;
+    }
+    #message {
+      position: absolute;
+      top: 50%;
+      width: 100%;
+      text-align: center;
+      font-size: 24px;
+      z-index: 10;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="ui" style="display:none;">
+    <span id="lapLabel">Lap: 0/5</span>
+    <button id="musicBtn">Music: Off</button>
+  </div>
+  <div id="titleScreen">
+    <div id="title">Echo Drift</div>
+    <button id="startBtn">Start</button>
+    <button id="musicToggleBtn">Music: Off</button>
+  </div>
+  <div id="message">Tap to Start</div>
+  <canvas id="gameCanvas"></canvas>
+  <audio id="bgm" loop>
+    <source src="synth_loop.mp3" type="audio/mpeg">
+  </audio>
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const lapLabel = document.getElementById("lapLabel");
+    const startBtn = document.getElementById("startBtn");
+    const musicBtn = document.getElementById("musicToggleBtn");
+    const bgm = document.getElementById("bgm");
+    const message = document.getElementById("message");
+    const titleScreen = document.getElementById("titleScreen");
+    const ui = document.getElementById("ui");
+
+    let width, height, centerX, centerY, radius;
+    let x, y, dx = 0, dy = 0;
+    let lap = 0, totalLaps = 5;
+    let started = false, tapToStart = false;
+    let musicOn = false;
+    let hasExitedStartZone = false;
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      width = canvas.width;
+      height = canvas.height;
+      centerX = width / 2;
+      centerY = height / 2;
+      radius = Math.min(width, height) * 0.35;
+      resetPosition();
+    }
+
+    function resetPosition() {
+      x = centerX + radius;
+      y = centerY;
+      dx = 0;
+      dy = 0;
+    }
+
+    function drawTrack() {
+      ctx.beginPath();
+      ctx.strokeStyle = "#333";
+      ctx.lineWidth = 5;
+      ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    function drawCar() {
+      ctx.beginPath();
+      ctx.fillStyle = "cyan";
+      ctx.arc(x, y, 10, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function updatePosition() {
+      let distX = x - centerX;
+      let distY = y - centerY;
+      let dist = Math.sqrt(distX ** 2 + distY ** 2);
+      let force = (radius - dist) * 0.01;
+      let fx = (distX / dist) * force;
+      let fy = (distY / dist) * force;
+      dx -= fx;
+      dy -= fy;
+      x += dx;
+      y += dy;
+      dx *= 0.98;
+      dy *= 0.98;
+
+      let angle = Math.atan2(y - centerY, x - centerX);
+      let startZone = Math.abs(angle) < 0.3;
+      let speed = Math.sqrt(dx ** 2 + dy ** 2);
+
+      if (startZone && hasExitedStartZone && speed > 0.5) {
+        lap++;
+        lapLabel.textContent = "Lap: " + lap + "/" + totalLaps;
+        hasExitedStartZone = false;
+      } else if (!startZone) {
+        hasExitedStartZone = true;
+      }
+
+      if (lap >= totalLaps) {
+        started = false;
+        alert("Victory! All laps completed.");
+      }
+    }
+
+    function gameLoop() {
+      if (!started || tapToStart) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawTrack();
+      drawCar();
+      updatePosition();
+      requestAnimationFrame(gameLoop);
+    }
+
+    window.addEventListener("deviceorientation", function(event) {
+      if (!started || tapToStart) return;
+      let tiltX = event.gamma || 0;
+      let tiltY = event.beta || 0;
+      dx += tiltX * 0.01;
+      dy += tiltY * 0.01;
+    });
+
+    startBtn.onclick = () => {
+      titleScreen.style.display = "none";
+      ui.style.display = "block";
+      lap = 0;
+      started = true;
+      tapToStart = true;
+      lapLabel.textContent = "Lap: 0/" + totalLaps;
+      message.style.display = "block";
+      resetPosition();
+    };
+
+    canvas.addEventListener("click", () => {
+      if (tapToStart) {
+        tapToStart = false;
+        message.style.display = "none";
+        gameLoop();
+      }
+    });
+
+    musicBtn.onclick = () => {
+      musicOn = !musicOn;
+      if (musicOn) {
+        bgm.volume = 0.5;
+        bgm.play();
+        musicBtn.textContent = "Music: On";
+      } else {
+        bgm.pause();
+        bgm.currentTime = 0;
+        musicBtn.textContent = "Music: Off";
+      }
+    };
+
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
+  </script>
+</body>
+</html>
