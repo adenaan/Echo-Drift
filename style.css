@@ -1,0 +1,45 @@
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background-color: black;
+  overflow: hidden;
+  height: 100%;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color: white;
+}
+
+#gameCanvas {
+  width: 100vw;
+  height: 100vh;
+  display: block;
+}
+
+#ui {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  text-align: center;
+}
+
+#startBtn {
+  font-size: 1.2rem;
+  padding: 12px 24px;
+  background-color: #0cf;
+  border: none;
+  border-radius: 8px;
+  color: #000;
+  cursor: pointer;
+  margin-bottom: 10px;
+  box-shadow: 0 0 10px #0cf;
+}
+
+#startBtn:hover {
+  background-color: #0af;
+}
+
+#lapDisplay {
+  font-size: 1rem;
+}
