@@ -1,0 +1,142 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Echo Drift - Stage 3</title>
+<style>
+  body { margin: 0; background: black; color: white; font-family: sans-serif; overflow: hidden; }
+  canvas { display: block; background: black; }
+  #ui { position: absolute; top: 10px; left: 10px; z-index: 10; color: white; }
+  #tapToStart { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 24px; }
+</style>
+</head>
+<body>
+<canvas id="gameCanvas" width="400" height="400"></canvas>
+<div id="ui">
+  <div id="lapLabel">Lap 1 / 5</div>
+</div>
+<div id="tapToStart">Tap to Start</div>
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+const tapToStart = document.getElementById("tapToStart");
+const lapLabel = document.getElementById("lapLabel");
+
+let started = false;
+let tilt = 0;
+let targetTilt = 0;
+
+let car = { x: 200, y: 100, angle: -Math.PI/2, lap: 1, path: [] };
+let ghosts = [];
+let lastAngle = car.angle;
+let crossed = false;
+let frameCount = 0;
+
+function drawTrack() {
+  ctx.strokeStyle = "#4444ff";
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.arc(200, 200, 100, 0, 2 * Math.PI);
+  ctx.stroke();
+
+  // Draw lap line
+  ctx.strokeStyle = "#ff0000";
+  ctx.beginPath();
+  ctx.moveTo(200, 100);
+  ctx.lineTo(200, 95);
+  ctx.stroke();
+}
+
+function drawCar(x, y, angle, color = "lime") {
+  const size = 10;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(0, -size);
+  ctx.lineTo(size, size);
+  ctx.lineTo(-size, size);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+function updateCar() {
+  tilt += (targetTilt - tilt) * 0.1;
+  car.angle += tilt * 0.002;
+
+  const radius = 100;
+  car.x = 200 + Math.cos(car.angle) * radius;
+  car.y = 200 + Math.sin(car.angle) * radius;
+
+  // Store path data
+  car.path.push({ angle: car.angle });
+
+  // Lap detection (crossing top from bottom)
+  const angleDeg = (car.angle * 180 / Math.PI + 360) % 360;
+  if (angleDeg > 350 || angleDeg < 10) {
+    if (!crossed) {
+      crossed = true;
+      if (car.lap < 5) {
+        ghosts.push({ path: [...car.path], index: 0 });
+        car.path = [];
+        car.lap++;
+        lapLabel.textContent = "Lap " + car.lap + " / 5";
+      }
+    }
+  } else {
+    crossed = false;
+  }
+}
+
+function updateGhosts() {
+  for (let ghost of ghosts) {
+    if (ghost.index < ghost.path.length) {
+      const angle = ghost.path[ghost.index].angle;
+      ghost.x = 200 + Math.cos(angle) * 100;
+      ghost.y = 200 + Math.sin(angle) * 100;
+      ghost.angle = angle;
+      ghost.index++;
+      drawCar(ghost.x, ghost.y, ghost.angle, "cyan");
+
+      // Collision
+      const dx = ghost.x - car.x;
+      const dy = ghost.y - car.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < 15) {
+        alert("Crashed into your Echo! Game Over.");
+        location.reload();
+      }
+    }
+  }
+}
+
+function gameLoop() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawTrack();
+  if (started) {
+    updateCar();
+    updateGhosts();
+    drawCar(car.x, car.y, car.angle);
+  }
+  requestAnimationFrame(gameLoop);
+}
+
+tapToStart.addEventListener("click", () => {
+  started = true;
+  tapToStart.style.display = "none";
+});
+
+window.addEventListener("deviceorientation", function(event) {
+  if (event.gamma !== null) {
+    targetTilt = event.gamma;
+  }
+}, true);
+
+gameLoop();
+</script>
+</body>
+</html>
