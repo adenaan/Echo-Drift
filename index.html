@@ -1,0 +1,145 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Echo Drift</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <style>
+    html, body { margin: 0; background: black; overflow: hidden; touch-action: none; }
+    canvas { display: block; width: 100vw; height: 100vh; }
+    #overlay {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      color: white; font-family: sans-serif; background: rgba(0,0,0,0.75); z-index: 10;
+    }
+    button {
+      font-size: 18px; padding: 10px 20px; margin: 10px;
+      background: #0f0; border: none; border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game"></canvas>
+  <div id="overlay">
+    <h1>Echo Drift</h1>
+    <button onclick="startGame()">Start</button>
+    <button onclick="toggleMusic()">Toggle Music</button>
+  </div>
+  <script>
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+    let width, height;
+    function resize() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    }
+    window.addEventListener("resize", resize);
+    resize();
+
+    let frame = 0, lap = 1, exitedStartZone = false, started = false;
+    let x = 0, y = 0, dx = 0, dy = 0, speed = 0;
+    let musicOn = false;
+
+    function center() {
+      return { x: width / 2, y: height / 2 };
+    }
+
+    function trackRadius() {
+      return Math.min(width, height) / 3;
+    }
+
+    function toggleMusic() {
+      musicOn = !musicOn;
+      alert("Music " + (musicOn ? "On" : "Off"));
+    }
+
+    function startGame() {
+      document.getElementById("overlay").style.display = "none";
+      started = true;
+      x = center().x + trackRadius();
+      y = center().y;
+      dx = dy = 0;
+      frame = 0;
+      lap = 1;
+      exitedStartZone = false;
+    }
+
+    window.addEventListener("deviceorientation", (e) => {
+      if (!started) return;
+      const tx = e.gamma || 0;
+      const ty = e.beta || 0;
+      dx += tx * 0.01;
+      dy += ty * 0.01;
+      speed = Math.sqrt(dx*dx + dy*dy);
+    });
+
+    function loop() {
+      if (!started) return requestAnimationFrame(loop);
+      frame++;
+
+      x += dx;
+      y += dy;
+
+      // Gently pull back to circular path
+      const angle = Math.atan2(y - center().y, x - center().x);
+      const targetX = center().x + trackRadius() * Math.cos(angle);
+      const targetY = center().y + trackRadius() * Math.sin(angle);
+      dx += (targetX - x) * 0.002;
+      dy += (targetY - y) * 0.002;
+
+      ctx.clearRect(0, 0, width, height);
+
+      // Draw track
+      ctx.strokeStyle = "#444";
+      ctx.lineWidth = 20;
+      ctx.beginPath();
+      ctx.arc(center().x, center().y, trackRadius(), 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Draw start arc
+      ctx.strokeStyle = "lime";
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.arc(center().x, center().y, trackRadius(), Math.PI * 1.45, Math.PI * 1.55);
+      ctx.stroke();
+
+      // Draw player
+      ctx.fillStyle = "cyan";
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.arc(x, y, 10, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Lap logic
+      let anglePos = Math.atan2(y - center().y, x - center().x);
+      let inStartZone = anglePos > Math.PI * 1.45 || anglePos < -Math.PI * 0.45;
+      if (!inStartZone) exitedStartZone = true;
+      if (inStartZone && exitedStartZone) {
+        lap++;
+        exitedStartZone = false;
+      }
+
+      // Victory
+      if (lap > 5) {
+        ctx.fillStyle = "rgba(0,0,0,0.8)";
+        ctx.fillRect(0, 0, width, height);
+        ctx.fillStyle = "lime";
+        ctx.font = "bold 32px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("Victory! All Laps Complete", width / 2, height / 2);
+        return;
+      }
+
+      // Draw lap
+      ctx.fillStyle = "white";
+      ctx.font = "20px sans-serif";
+      ctx.fillText(`Lap ${lap}/5`, 20, 30);
+
+      requestAnimationFrame(loop);
+    }
+
+    loop();
+  </script>
+</body>
+</html>
