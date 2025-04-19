@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Echo Drift</title>
+    <style>
+        body, html { margin: 0; padding: 0; overflow: hidden; background: black; color: white; font-family: sans-serif; }
+        canvas { display: block; }
+        #ui { position: absolute; top: 10px; left: 10px; z-index: 10; }
+        button { padding: 10px; margin: 5px; font-size: 16px; }
+        #popup { display: none; position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); background: #222; padding: 20px; border: 2px solid #fff; z-index: 20; }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <button id="startBtn">Start</button>
+        <button id="musicBtn">Music: Off</button>
+    </div>
+    <div id="popup">
+        <p id="popupText">Crashed!</p>
+        <button id="popupOk">OK</button>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+    <script src="main.js"></script>
+</body>
+</html>
