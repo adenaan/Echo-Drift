@@ -1,0 +1,201 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Echo Drift - Free Driving</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: black;
+      font-family: 'Orbitron', sans-serif;
+    }
+    canvas {
+      display: block;
+      background: radial-gradient(circle at center, #111 0%, #000 100%);
+    }
+    #ui {
+      position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+      color: #0ff; text-align: center; z-index: 10;
+    }
+    .mobile-controls {
+      position: absolute; bottom: 30px; width: 100%; text-align: center; z-index: 10;
+    }
+    .mobile-controls button {
+      width: 60px; height: 60px; margin: 10px; font-size: 24px;
+      background: #111; color: #0ff; border: 2px solid #0ff; border-radius: 50%;
+      transition: transform 0.1s, background 0.2s;
+    }
+    .mobile-controls button:active {
+      background: #0ff; color: #000;
+      transform: scale(1.2);
+    }
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div id="ui">
+    <h1>Echo Drift</h1>
+    <button onclick="startGame()">Start Game</button>
+    <p id="lapInfo">Lap: 1/5</p>
+  </div>
+  <div class="mobile-controls">
+    <button ontouchstart="keys['ArrowLeft']=true" ontouchend="keys['ArrowLeft']=false">←</button>
+    <button ontouchstart="keys['ArrowUp']=true" ontouchend="keys['ArrowUp']=false">↑</button>
+    <button ontouchstart="keys['ArrowRight']=true" ontouchend="keys['ArrowRight']=false">→</button>
+  </div>
+  <canvas id="gameCanvas"></canvas>
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    let keys = {};
+    let frame = 0;
+    let running = false;
+    let lap = 1;
+    let playerPath = [];
+    let ghosts = [];
+
+    const center = () => ({ x: canvas.width / 2, y: canvas.height / 2 });
+    const radius = () => Math.min(canvas.width, canvas.height) / 3;
+
+    let player = {
+      x: 0, y: 0, angle: 0, speed: 0, maxSpeed: 3, radius: 10,
+      shield: false, shieldTimer: 0, color: "#0ff"
+    };
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      const r = radius();
+      player.x = center().x + r * Math.cos(-Math.PI / 2);
+      player.y = center().y + r * Math.sin(-Math.PI / 2);
+      player.angle = 0;
+    }
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
+
+    window.addEventListener("keydown", e => keys[e.key] = true);
+    window.addEventListener("keyup", e => keys[e.key] = false);
+
+    function startGame() {
+      document.getElementById("ui").style.display = "none";
+      running = true;
+      requestAnimationFrame(gameLoop);
+    }
+
+    function updatePlayer() {
+      // Controls
+      if (keys["ArrowLeft"]) player.angle -= 0.05;
+      if (keys["ArrowRight"]) player.angle += 0.05;
+      if (keys["ArrowUp"]) player.speed = Math.min(player.speed + 0.1, player.maxSpeed);
+      else player.speed *= 0.98;
+
+      // Movement
+      player.x += Math.cos(player.angle) * player.speed;
+      player.y += Math.sin(player.angle) * player.speed;
+
+      // Soft attraction toward track path
+      const dx = player.x - center().x;
+      const dy = player.y - center().y;
+      const dist = Math.hypot(dx, dy);
+      const idealR = radius();
+      const offset = dist - idealR;
+      const attractionForce = -offset * 0.01;
+      const angleToCenter = Math.atan2(dy, dx);
+      player.x += Math.cos(angleToCenter) * attractionForce;
+      player.y += Math.sin(angleToCenter) * attractionForce;
+
+      playerPath.push({x: player.x, y: player.y});
+
+      // Ghost collision
+      for (let g of ghosts) {
+        let ghostPos = g[frame];
+        if (ghostPos && Math.hypot(player.x - ghostPos.x, player.y - ghostPos.y) < 15) {
+          running = false;
+          alert("Crashed into your echo!");
+        }
+      }
+
+      // Lap completion
+      if (
+        player.x > center().x + radius() - 10 &&
+        player.x < center().x + radius() + 10 &&
+        player.y > center().y - 20 &&
+        player.y < center().y + 20
+      ) {
+        ghosts.push([...playerPath]);
+        playerPath = [];
+        lap++;
+        if (lap > 5) {
+          running = false;
+          alert("Victory! All 5 laps complete.");
+        }
+        document.getElementById("lapInfo").innerText = "Lap: " + lap + "/5";
+      }
+    }
+
+    function drawTrack() {
+      ctx.strokeStyle = "#444";
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.arc(center().x, center().y, radius(), 0, Math.PI * 2);
+      ctx.stroke();
+
+      for (let i = 0; i < 360; i += 20) {
+        let a = i * Math.PI / 180;
+        let x = center().x + radius() * Math.cos(a);
+        let y = center().y + radius() * Math.sin(a);
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + Math.cos(a) * 10, y + Math.sin(a) * 10);
+        ctx.strokeStyle = "#0ff";
+        ctx.stroke();
+      }
+
+      // Start line
+      ctx.strokeStyle = "#ff0";
+      ctx.beginPath();
+      ctx.moveTo(center().x + radius(), center().y - 20);
+      ctx.lineTo(center().x + radius(), center().y + 20);
+      ctx.stroke();
+    }
+
+    function drawPlayer(p, ghost = false) {
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.angle || 0);
+      ctx.fillStyle = ghost ? "rgba(255,0,255,0.3)" : p.color;
+      ctx.shadowBlur = ghost ? 0 : 15;
+      ctx.shadowColor = p.color;
+      ctx.beginPath();
+      ctx.moveTo(0, -10);
+      ctx.lineTo(6, 10);
+      ctx.lineTo(-6, 10);
+      ctx.closePath();
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.restore();
+    }
+
+    function drawGhosts() {
+      for (let g of ghosts) {
+        if (g[frame]) drawPlayer(g[frame], true);
+      }
+    }
+
+    function gameLoop() {
+      if (!running) return;
+      frame++;
+      updatePlayer();
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawTrack();
+      drawGhosts();
+      drawPlayer(player);
+      requestAnimationFrame(gameLoop);
+    }
+  </script>
+</body>
+</html>
