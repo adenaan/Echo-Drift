@@ -1,0 +1,157 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Echo Drift</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <style>
+    html, body {
+      margin: 0;
+      overflow: hidden;
+      background: black;
+      touch-action: none;
+    }
+    canvas {
+      display: block;
+      background: radial-gradient(#222, #000);
+    }
+    #ui {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 10;
+      color: white;
+      font-family: sans-serif;
+    }
+    #debugBox {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      color: white;
+      background: #0008;
+      padding: 6px;
+      font-size: 12px;
+      border-radius: 6px;
+      z-index: 10;
+    }
+    button {
+      margin-right: 10px;
+      padding: 6px 12px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+  <div id="ui">
+    <button onclick="startGame()">Start</button>
+    <span id="lapInfo">Lap: 1/5</span>
+    <button onclick="toggleMusic()">Toggle Music</button>
+  </div>
+  <div id="debugBox">
+    Echo Drift Build: <strong>v4 Clean Rebuild</strong><br>
+    <span id="debugLog">Ready...</span>
+  </div>
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    let x = canvas.width / 2, y = canvas.height / 2;
+    let vx = 0, vy = 0;
+    let ax = 0, ay = 0;
+    let lap = 1;
+    let running = false;
+    let frame = 0;
+    let exitedStartZone = false;
+
+    const center = () => ({ x: canvas.width / 2, y: canvas.height / 2 });
+    const trackRadius = () => Math.min(canvas.width, canvas.height) / 3;
+
+    window.addEventListener("deviceorientation", (e) => {
+      ax = e.gamma / 30;
+      ay = e.beta / 30;
+    });
+
+    function toggleMusic() {
+      alert("Music toggled! (placeholder)");
+    }
+
+    function startGame() {
+      if (!running) {
+        x = center().x + trackRadius();
+        y = center().y;
+        vx = vy = 0;
+        lap = 1;
+        frame = 0;
+        exitedStartZone = false;
+        running = true;
+        document.getElementById("lapInfo").innerText = "Lap: 1/5";
+        document.getElementById("debugLog").innerText = "Game started...";
+        update();
+      }
+    }
+
+    function update() {
+      if (!running) return;
+      frame++;
+
+      vx += ax * 0.2;
+      vy += ay * 0.2;
+      vx *= 0.96;
+      vy *= 0.96;
+      x += vx;
+      y += vy;
+
+      // Gentle circular guidance
+      let dx = x - center().x;
+      let dy = y - center().y;
+      let dist = Math.sqrt(dx * dx + dy * dy);
+      let targetDist = trackRadius();
+      let pullStrength = (dist - targetDist) * 0.01;
+      vx -= (dx / dist) * pullStrength;
+      vy -= (dy / dist) * pullStrength;
+
+      // Lap detection
+      let crossed = Math.abs(dx) < 20;
+      let inStartZone = y > center().y - 100 && y < center().y + 100;
+
+      if (!inStartZone) exitedStartZone = true;
+
+      if (crossed && inStartZone && exitedStartZone && frame > 120) {
+        lap++;
+        exitedStartZone = false;
+        if (lap > 5) {
+          running = false;
+          alert("Victory! All 5 laps complete.");
+        }
+        document.getElementById("lapInfo").innerText = "Lap: " + lap + "/5";
+        document.getElementById("debugLog").innerText = "Lap " + lap + " triggered at frame " + frame;
+      } else {
+        if (inStartZone) {
+          document.getElementById("debugLog").innerText = "In start zone, frame " + frame;
+        } else {
+          document.getElementById("debugLog").innerText = "Out of start zone, frame " + frame;
+        }
+      }
+
+      // Drawing
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = "#444";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(center().x, center().y, trackRadius(), 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.fillStyle = "cyan";
+      ctx.beginPath();
+      ctx.arc(x, y, 10, 0, Math.PI * 2);
+      ctx.fill();
+
+      requestAnimationFrame(update);
+    }
+  </script>
+</body>
+</html>
