@@ -1,0 +1,88 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Echo Drift - Stage 2B</title>
+<style>
+  body { margin: 0; background: black; color: white; font-family: sans-serif; overflow: hidden; }
+  canvas { display: block; background: black; }
+  #ui { position: absolute; top: 10px; left: 10px; z-index: 10; color: white; }
+  #tapToStart { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 24px; }
+</style>
+</head>
+<body>
+<canvas id="gameCanvas" width="400" height="400"></canvas>
+<div id="ui">Tilt to steer</div>
+<div id="tapToStart">Tap to Start</div>
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+const tapToStart = document.getElementById("tapToStart");
+let car = { x: 200, y: 100, angle: -Math.PI / 2, speed: 0 };
+let started = false;
+let tilt = 0;
+let targetTilt = 0;
+
+function drawTrack() {
+  ctx.strokeStyle = "#5555ff";
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.arc(200, 200, 100, 0, 2 * Math.PI);
+  ctx.stroke();
+}
+
+function drawCar() {
+  const size = 10;
+  ctx.save();
+  ctx.translate(car.x, car.y);
+  ctx.rotate(car.angle);
+  ctx.fillStyle = "lime";
+  ctx.beginPath();
+  ctx.moveTo(0, -size);
+  ctx.lineTo(size, size);
+  ctx.lineTo(-size, size);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+function updateCar() {
+  // Smooth the tilt input
+  tilt += (targetTilt - tilt) * 0.1;
+
+  // Apply tilt as small angle change
+  car.angle += tilt * 0.002;
+
+  // Keep car on circular path
+  const radius = 100;
+  car.x = 200 + Math.cos(car.angle) * radius;
+  car.y = 200 + Math.sin(car.angle) * radius;
+}
+
+function gameLoop() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawTrack();
+  if (started) {
+    updateCar();
+    drawCar();
+  }
+  requestAnimationFrame(gameLoop);
+}
+
+tapToStart.addEventListener("click", () => {
+  started = true;
+  tapToStart.style.display = "none";
+});
+
+window.addEventListener("deviceorientation", function(event) {
+  if (event.gamma !== null) {
+    targetTilt = event.gamma;
+  }
+}, true);
+
+gameLoop();
+</script>
+</body>
+</html>
