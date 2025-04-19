@@ -1,0 +1,57 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Echo Drift - Clean Start</title>
+<style>
+  body { margin: 0; background: black; color: white; font-family: sans-serif; overflow: hidden; }
+  canvas { display: block; background: black; }
+  #ui { position: absolute; top: 10px; left: 10px; z-index: 10; }
+  button { margin: 5px; padding: 10px; font-size: 16px; }
+</style>
+</head>
+<body>
+<canvas id="gameCanvas" width="400" height="400"></canvas>
+<div id="ui">
+  <button onclick="leftPressed()">Left</button>
+  <button onclick="rightPressed()">Right</button>
+  <div id="status">Status: Ready</div>
+</div>
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+let status = document.getElementById("status");
+let barX = 180;
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "lime";
+  ctx.fillRect(barX, 200, 40, 10);
+}
+
+function leftPressed() {
+  status.innerText = "Status: Left button pressed";
+  barX -= 10;
+  draw();
+}
+
+function rightPressed() {
+  status.innerText = "Status: Right button pressed";
+  barX += 10;
+  draw();
+}
+
+window.addEventListener("deviceorientation", function(event) {
+  const tilt = event.gamma; // left/right tilt
+  if (tilt !== null) {
+    barX = 180 + tilt * 5;
+    status.innerText = "Status: Tilt = " + tilt.toFixed(2);
+    draw();
+  }
+}, true);
+
+draw();
+</script>
+</body>
+</html>
