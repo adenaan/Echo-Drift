@@ -1,0 +1,125 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Echo Drift</title>
+  <style>
+    body { margin: 0; background: #000; color: white; font-family: sans-serif; text-align: center; }
+    canvas { display: block; margin: 0 auto; background: #111; }
+    #crashPopup {
+      display: none; position: fixed; top: 50%; left: 50%;
+      transform: translate(-50%, -50%); background: #222;
+      padding: 20px; border: 2px solid #fff; z-index: 10;
+    }
+    button { background: #444; color: white; border: none; padding: 10px 20px; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <h1>Echo Drift</h1>
+  <button id="startBtn">Start</button>
+  <div id="crashPopup">
+    <p>You crashed into a ghost!</p>
+    <button id="okBtn">OK</button>
+  </div>
+  <canvas id="gameCanvas" width="400" height="400"></canvas>
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const startBtn = document.getElementById("startBtn");
+    const crashPopup = document.getElementById("crashPopup");
+    const okBtn = document.getElementById("okBtn");
+
+    let gameStarted = false;
+    let crashed = false;
+    let lapCount = 0;
+    let ghosts = [];
+    let car = { x: 200, y: 200, vx: 0, vy: 0 };
+
+    function resetGame() {
+      car.x = 200;
+      car.y = 200;
+      car.vx = 0;
+      car.vy = 0;
+      crashed = false;
+      crashPopup.style.display = "none";
+      ghosts = [];
+      lapCount = 0;
+    }
+
+    startBtn.addEventListener("click", () => {
+      gameStarted = true;
+      resetGame();
+    });
+
+    okBtn.addEventListener("click", () => {
+      resetGame();
+    });
+
+    function update() {
+      if (!gameStarted || crashed) return;
+
+      // Simulate tilt with arrow keys (for desktop test)
+      if (keys["ArrowLeft"]) car.vx -= 0.1;
+      if (keys["ArrowRight"]) car.vx += 0.1;
+      if (keys["ArrowUp"]) car.vy -= 0.1;
+      if (keys["ArrowDown"]) car.vy += 0.1;
+
+      car.x += car.vx;
+      car.y += car.vy;
+
+      // Friction
+      car.vx *= 0.95;
+      car.vy *= 0.95;
+
+      // Fake lap zone
+      if (car.x > 390 && lapCount < 5) {
+        lapCount++;
+        if (lapCount > 1) {
+          ghosts.push({ x: car.x, y: car.y });
+        }
+      }
+
+      // Ghost collision check (only after lap 2)
+      for (let ghost of ghosts) {
+        let dx = ghost.x - car.x;
+        let dy = ghost.y - car.y;
+        if (Math.sqrt(dx * dx + dy * dy) < 10) {
+          crashed = true;
+          crashPopup.style.display = "block";
+        }
+      }
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // Draw car
+      ctx.fillStyle = "lime";
+      ctx.beginPath();
+      ctx.arc(car.x, car.y, 5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Draw ghosts
+      ctx.fillStyle = "red";
+      for (let ghost of ghosts) {
+        ctx.beginPath();
+        ctx.arc(ghost.x, ghost.y, 5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function gameLoop() {
+      update();
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+
+    let keys = {};
+    window.addEventListener("keydown", e => keys[e.key] = true);
+    window.addEventListener("keyup", e => keys[e.key] = false);
+
+    gameLoop();
+  </script>
+</body>
+</html>
