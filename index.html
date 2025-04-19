@@ -1,0 +1,226 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Echo Drift</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: black;
+      color: white;
+      font-family: sans-serif;
+      height: 100%;
+      width: 100%;
+    }
+    #gameCanvas {
+      display: block;
+      background: #111;
+      touch-action: none;
+    }
+    #ui {
+      position: absolute;
+      top: 20px;
+      width: 100%;
+      text-align: center;
+      z-index: 10;
+    }
+    #titleScreen {
+      position: absolute;
+      top: 40%;
+      width: 100%;
+      text-align: center;
+      z-index: 10;
+    }
+    #title {
+      font-size: 32px;
+      margin-bottom: 20px;
+    }
+    button {
+      font-size: 18px;
+      padding: 10px 20px;
+      margin: 5px;
+    }
+    #message {
+      position: absolute;
+      top: 50%;
+      width: 100%;
+      text-align: center;
+      font-size: 24px;
+      z-index: 10;
+      display: none;
+    }
+  </style>
+</head>
+<body><div id="debug-tilt" style="position:absolute;top:10px;left:10px;color:white;font-size:14px;z-index:10;"></div>
+  <div id="ui" style="display:none;">
+    <span id="lapLabel">Lap: 0/5</span>
+    <button id="musicBtn">Music: Off</button>
+  </div>
+  <div id="titleScreen">
+    <div id="title">Echo Drift</div>
+    <button id="startBtn">Start</button>
+    <button id="musicToggleBtn">Music: Off</button>
+  </div>
+  <div id="message">Tap to Start</div>
+  <canvas id="gameCanvas"></canvas>
+  <audio id="bgm" loop>
+    <source src="synth_loop.mp3" type="audio/mpeg">
+  </audio>
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const lapLabel = document.getElementById("lapLabel");
+    const startBtn = document.getElementById("startBtn");
+    const musicBtn = document.getElementById("musicToggleBtn");
+    const bgm = document.getElementById("bgm");
+    const message = document.getElementById("message");
+    const titleScreen = document.getElementById("titleScreen");
+    const ui = document.getElementById("ui");
+
+    let width, height, centerX, centerY, radius;
+    let angle = 0, angularVelocity = 0;
+    let lap = 0, totalLaps = 5;
+    let started = false, tapToStart = false, musicOn = false;
+    let hasExitedStartZone = false;
+    let allowTiltInput = false;
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      width = canvas.width;
+      height = canvas.height;
+      centerX = width / 2;
+      centerY = height / 2;
+      radius = Math.min(width, height) * 0.35;
+      resetPosition();
+    }
+
+    function resetPosition() {
+      angle = 0;
+      angularVelocity = 0;
+    }
+
+    function drawTrack() {
+      ctx.beginPath();
+      ctx.strokeStyle = "#333";
+      ctx.lineWidth = 5;
+      ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    function drawCar() {
+      const carX = centerX + radius * Math.cos(angle);
+      const carY = centerY + radius * Math.sin(angle);
+      ctx.beginPath();
+      ctx.fillStyle = "cyan";
+      ctx.arc(carX, carY, 10, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function updatePosition() {
+  // Apply tilt to angle
+  angle += tiltAngle * 0.005 + turnDirection * 0.05;
+  // Compute polar angle based on current position
+  const carX = centerX + radius * Math.cos(angle);
+  const carY = centerY + radius * Math.sin(angle);
+  const polarAngle = Math.atan2(carY - centerY, carX - centerX);
+  if (lastPolarAngle !== null) {
+    let delta = polarAngle - lastPolarAngle;
+    if (delta < -Math.PI) delta += 2 * Math.PI;
+    if (delta > Math.PI) delta -= 2 * Math.PI;
+    polarAngleAccum += delta;
+  }
+  lastPolarAngle = polarAngle;
+
+  lastCarAngle = carAngle;
+      angle += angularVelocity;
+      angularVelocity *= 0.99;
+
+      const inStartZone = Math.abs(angle % (2 * Math.PI)) < 0.3;
+      const speed = Math.abs(angularVelocity);
+
+      if (inStartZone && hasExitedStartZone && speed > 0.01 && angleDirection > 0) {
+        lap++;
+        lapLabel.textContent = "Lap: " + lap + "/" + totalLaps;
+        hasExitedStartZone = false;
+      } else if (!inStartZone) {
+        hasExitedStartZone = true;
+      }
+
+      if (lap >= totalLaps) {
+        started = false;
+        alert("Victory! All laps completed.");
+      }
+    }
+
+    function gameLoop() {
+      if (!started || tapToStart) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawTrack();
+      drawCar();
+      updatePosition();
+      requestAnimationFrame(gameLoop);
+    }
+
+    window.addEventListener("deviceorientation", function(event) {
+      if (!allowTiltInput) return;
+      let tiltX = event.gamma || 0;
+      if (Math.abs(tiltX) > 2) {
+        
+    let tiltScale = 0.0007;
+    angularVelocity += tiltX * tiltScale;
+    angularVelocity = Math.max(Math.min(angularVelocity, 0.05), -0.05);
+    
+      }
+    });
+
+    startBtn.onclick = () => {
+      titleScreen.style.display = "none";
+      ui.style.display = "block";
+      lap = 0;
+      started = true;
+      tapToStart = true;
+      allowTiltInput = false;
+      angularVelocity = 0;
+      lapLabel.textContent = "Lap: 0/" + totalLaps;
+      message.style.display = "block";
+      resetPosition();
+    };
+
+    canvas.addEventListener("click", () => {
+      if (tapToStart) {
+        tapToStart = false;
+        allowTiltInput = true;
+        angularVelocity = 0;
+        message.style.display = "none";
+        gameLoop();
+      }
+    });
+
+    musicBtn.onclick = () => {
+      musicOn = !musicOn;
+      if (musicOn) {
+        bgm.volume = 0.5;
+        bgm.play();
+        musicBtn.textContent = "Music: On";
+      } else {
+        bgm.pause();
+        bgm.currentTime = 0;
+        musicBtn.textContent = "Music: Off";
+      }
+    };
+
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
+  </script>
+
+<div style="position:absolute;bottom:20px;left:20px;z-index:10;">
+  <button id="leftBtn" style="font-size:20px;padding:10px 20px;">Left</button>
+  <button id="rightBtn" style="font-size:20px;padding:10px 20px;margin-left:10px;">Right</button>
+</div>
+
+</body>
+</html>
