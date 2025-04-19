@@ -1,1 +1,0 @@
-// JS game logic with ghost movement and collision fix
