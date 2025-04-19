@@ -1,0 +1,160 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Echo Drift</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <style>
+    body, html { margin: 0; padding: 0; overflow: hidden; background: black; color: white; font-family: sans-serif; }
+    canvas { display: block; background: #111; margin: 0 auto; }
+    #ui { position: absolute; top: 10px; left: 10px; z-index: 10; }
+    button { margin-right: 10px; }
+    #message { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 24px; display: none; }
+  </style>
+</head>
+<body>
+  <div id="ui">
+    <button id="startBtn">Start</button>
+    <button id="musicBtn">Music: Off</button>
+    <span id="lapLabel">Lap: 0/5</span>
+  </div>
+  <div id="message">Tap to Start</div>
+  <canvas id="gameCanvas" width="800" height="600"></canvas>
+  <audio id="bgm" loop>
+    <source src="synth_loop.mp3" type="audio/mpeg">
+  </audio>
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const lapLabel = document.getElementById("lapLabel");
+    const startBtn = document.getElementById("startBtn");
+    const musicBtn = document.getElementById("musicBtn");
+    const message = document.getElementById("message");
+    const bgm = document.getElementById("bgm");
+
+    let centerX = canvas.width / 2;
+    let centerY = canvas.height / 2;
+    let radius = 200;
+
+    let x = centerX + radius;
+    let y = centerY;
+    let dx = 0, dy = 0;
+    let angle = 0;
+    let lap = 0;
+    let totalLaps = 5;
+    let started = false;
+    let tapToStartActive = false;
+    let musicOn = false;
+    let hasExitedStartZone = false;
+    let inStartZone = false;
+
+    function drawTrack() {
+      ctx.beginPath();
+      ctx.strokeStyle = "#333";
+      ctx.lineWidth = 4;
+      ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+      ctx.stroke();
+    }
+
+    function drawCar() {
+      ctx.beginPath();
+      ctx.fillStyle = "cyan";
+      ctx.arc(x, y, 10, 0, 2 * Math.PI);
+      ctx.fill();
+    }
+
+    function updatePosition() {
+      let distX = x - centerX;
+      let distY = y - centerY;
+      let dist = Math.sqrt(distX * distX + distY * distY);
+      let targetDist = radius;
+      let force = (targetDist - dist) * 0.01;
+      let fx = (distX / dist) * force;
+      let fy = (distY / dist) * force;
+
+      dx += -fx;
+      dy += -fy;
+
+      x += dx;
+      y += dy;
+
+      dx *= 0.98;
+      dy *= 0.98;
+
+      // Lap detection
+      let currentAngle = Math.atan2(y - centerY, x - centerX);
+      let startZone = Math.abs(currentAngle) < 0.3;
+      let speed = Math.sqrt(dx * dx + dy * dy);
+
+      if (startZone) {
+        if (hasExitedStartZone && speed > 0.5) {
+          lap++;
+          lapLabel.textContent = "Lap: " + lap + "/" + totalLaps;
+          hasExitedStartZone = false;
+        }
+        inStartZone = true;
+      } else {
+        hasExitedStartZone = true;
+        inStartZone = false;
+      }
+
+      if (lap >= totalLaps) {
+        started = false;
+        alert("Victory! All laps completed.");
+      }
+    }
+
+    function loop() {
+      if (!started) return;
+      if (tapToStartActive) return;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawTrack();
+      drawCar();
+      updatePosition();
+
+      requestAnimationFrame(loop);
+    }
+
+    window.addEventListener("deviceorientation", function(event) {
+      if (!started || tapToStartActive) return;
+      let tiltX = event.gamma || 0;
+      let tiltY = event.beta || 0;
+      dx += tiltX * 0.01;
+      dy += tiltY * 0.01;
+    });
+
+    startBtn.onclick = () => {
+      lap = 0;
+      dx = dy = 0;
+      x = centerX + radius;
+      y = centerY;
+      started = true;
+      tapToStartActive = true;
+      lapLabel.textContent = "Lap: 0/" + totalLaps;
+      message.style.display = "block";
+    };
+
+    canvas.addEventListener("click", () => {
+      if (tapToStartActive) {
+        tapToStartActive = false;
+        message.style.display = "none";
+        loop();
+      }
+    });
+
+    musicBtn.onclick = () => {
+      musicOn = !musicOn;
+      if (musicOn) {
+        bgm.volume = 0.5;
+        bgm.play();
+        musicBtn.textContent = "Music: On";
+      } else {
+        bgm.pause();
+        bgm.currentTime = 0;
+        musicBtn.textContent = "Music: Off";
+      }
+    };
+  </script>
+</body>
+</html>
