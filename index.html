@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Echo Drift</title>
+  <style>
+    html, body { margin: 0; padding: 0; overflow: hidden; background: black; color: white; font-family: sans-serif; }
+    canvas { display: block; margin: auto; background: #000; }
+    #ui { position: absolute; top: 10px; left: 10px; z-index: 10; }
+    button { margin: 5px; font-size: 16px; }
+  </style>
+</head>
+<body>
+  <div id="ui">
+    <button id="startBtn">Start</button>
+    <button id="musicBtn">Music: Off</button>
+  </div>
+  <canvas id="gameCanvas" width="800" height="600"></canvas>
+  <script src="game.js"></script>
+</body>
+</html>
