@@ -1,0 +1,164 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: black;
+      color: white;
+      font-family: sans-serif;
+    }
+    canvas {
+      display: block;
+      margin: 0 auto;
+      background-color: #111;
+    }
+    #ui {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      text-align: center;
+    }
+    button {
+      font-size: 1rem;
+      padding: 0.5rem 1rem;
+      margin: 0.25rem;
+      border-radius: 0.5rem;
+      border: none;
+      background: #444;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <div id="ui">
+    <button id="startBtn">Tap to Start</button>
+    <button id="musicBtn">Toggle Music</button>
+    <div id="status"></div>
+  </div>
+  <canvas id="gameCanvas"></canvas>
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    let width = window.innerWidth;
+    let height = window.innerHeight;
+    canvas.width = width;
+    canvas.height = height;
+
+    let gameStarted = false;
+    let lapCount = 0;
+    let car = { x: width/2, y: height/2 - 100, angle: 0, speed: 0 };
+    let ghosts = [];
+    let ghostActive = false;
+    let ghostLapData = [];
+    let lastLapTime = 0;
+    let tiltX = 0;
+
+    window.addEventListener('deviceorientation', e => {
+      tiltX = e.gamma || 0;
+    });
+
+    document.getElementById('startBtn').onclick = () => {
+      if (!gameStarted) {
+        gameStarted = true;
+        ghosts = [];
+        lapCount = 0;
+        car.x = width/2;
+        car.y = height/2 - 100;
+        car.angle = 0;
+        car.speed = 0;
+        ghostLapData = [];
+        ghostActive = false;
+        lastLapTime = Date.now();
+        loop();
+      }
+    };
+
+    function drawTrack() {
+      ctx.strokeStyle = "#555";
+      ctx.lineWidth = 10;
+      ctx.beginPath();
+      ctx.arc(width/2, height/2, 150, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    function drawCar(c) {
+      ctx.save();
+      ctx.translate(c.x, c.y);
+      ctx.rotate(c.angle);
+      ctx.fillStyle = 'cyan';
+      ctx.fillRect(-5, -10, 10, 20);
+      ctx.restore();
+    }
+
+    function drawGhosts() {
+      if (!ghostActive) return;
+      ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
+      ghostLapData.forEach(p => {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+
+    function updateGhost() {
+      if (lapCount > 1 && ghostLapData.length > 0) {
+        ghostActive = true;
+      }
+    }
+
+    function loop() {
+      ctx.clearRect(0, 0, width, height);
+      drawTrack();
+
+      // Tilt control to adjust angle
+      car.angle += tiltX * 0.01;
+      car.speed = 1.5;
+
+      // Movement
+      car.x += Math.cos(car.angle) * car.speed;
+      car.y += Math.sin(car.angle) * car.speed;
+
+      // Ghost collision detection (after 1st lap)
+      if (ghostActive) {
+        for (let g of ghostLapData) {
+          let dx = g.x - car.x;
+          let dy = g.y - car.y;
+          if (Math.sqrt(dx*dx + dy*dy) < 10) {
+            gameStarted = false;
+            alert("Crashed into ghost!");
+            return;
+          }
+        }
+      }
+
+      // Lap detection
+      let dx = car.x - width/2;
+      let dy = car.y - height/2;
+      if (Math.abs(Math.sqrt(dx*dx + dy*dy) - 150) < 5 && Date.now() - lastLapTime > 3000) {
+        lapCount++;
+        document.getElementById('status').innerText = "Lap: " + lapCount;
+        if (lapCount > 1) ghostLapData = [...ghostLapData, { x: car.x, y: car.y }];
+        updateGhost();
+        lastLapTime = Date.now();
+        if (lapCount >= 5) {
+          alert("Victory! All laps complete.");
+          gameStarted = false;
+          return;
+        }
+      }
+
+      drawGhosts();
+      drawCar(car);
+
+      if (gameStarted) requestAnimationFrame(loop);
+    }
+  </script>
+</body>
+</html>
