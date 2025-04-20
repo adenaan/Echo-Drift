@@ -1,0 +1,232 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Echo Drift</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: black;
+      overflow: hidden;
+      font-family: sans-serif;
+      color: white;
+    }
+    #gameCanvas {
+      display: block;
+      background: #111;
+      touch-action: none;
+    }
+    #ui {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 10;
+    }
+    button {
+      padding: 10px 20px;
+      margin: 5px;
+      font-size: 16px;
+      border-radius: 10px;
+      background: #0ff;
+      color: #000;
+      border: none;
+    }
+    #lapCounter, #version {
+      font-size: 18px;
+      margin: 5px;
+    }
+    #messageBox {
+      position: absolute;
+      top: 40%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.8);
+      padding: 20px;
+      border: 2px solid white;
+      display: none;
+      z-index: 100;
+    }
+    #messageBox button {
+      background: #f00;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+  <div id="ui">
+    <button id="startButton">Tap to Start</button>
+    <button id="musicToggle">Music: Off</button>
+    <div id="lapCounter">Lap: 0/5</div>
+    <div id="version">vFinal</div>
+  </div>
+  <div id="messageBox">
+    <div id="messageText">Crashed!</div>
+    <button onclick="dismissMessage()">OK</button>
+  </div>
+  <audio id="bgMusic" loop>
+    <source src="synth-loop.mp3" type="audio/mpeg">
+  </audio>
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const startButton = document.getElementById("startButton");
+    const musicToggle = document.getElementById("musicToggle");
+    const lapCounter = document.getElementById("lapCounter");
+    const messageBox = document.getElementById("messageBox");
+    const messageText = document.getElementById("messageText");
+    const bgMusic = document.getElementById("bgMusic");
+
+    let width, height, centerX, centerY;
+    let player = { x: 0, y: 0, angle: 0, vx: 0, vy: 0 };
+    let laps = 0;
+    let started = false;
+    let ghosts = [];
+    let ghostPaths = [];
+    let trackRadius;
+    let musicOn = false;
+
+    function resize() {
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.width = width;
+      canvas.height = height;
+      centerX = width / 2;
+      centerY = height / 2;
+      trackRadius = Math.min(width, height) / 3;
+    }
+
+    window.addEventListener("resize", resize);
+    resize();
+
+    function resetGame() {
+      player.x = centerX + trackRadius;
+      player.y = centerY;
+      player.vx = 0;
+      player.vy = 0;
+      player.angle = -Math.PI / 2;
+      laps = 0;
+      lapCounter.textContent = `Lap: 0/5`;
+      ghosts = [];
+      ghostPaths = [];
+      started = false;
+    }
+
+    function drawTrack() {
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, trackRadius, 0, Math.PI * 2);
+      ctx.strokeStyle = "#0ff";
+      ctx.lineWidth = 4;
+      ctx.stroke();
+    }
+
+    function drawCar(x, y, color) {
+      ctx.beginPath();
+      ctx.arc(x, y, 10, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+    }
+
+    function updateGhosts() {
+      ghosts.forEach(g => {
+        if (g.pathIndex < g.path.length) {
+          const pos = g.path[g.pathIndex++];
+          g.x = pos.x;
+          g.y = pos.y;
+        }
+      });
+    }
+
+    function drawGhosts() {
+      ghosts.forEach(g => drawCar(g.x, g.y, "rgba(255,255,255,0.5)"));
+    }
+
+    function detectCrash() {
+      for (let g of ghosts) {
+        const dx = g.x - player.x;
+        const dy = g.y - player.y;
+        if (Math.sqrt(dx*dx + dy*dy) < 15) return true;
+      }
+      return false;
+    }
+
+    function dismissMessage() {
+      messageBox.style.display = "none";
+      resetGame();
+    }
+
+    function gameLoop() {
+      ctx.clearRect(0, 0, width, height);
+      if (started) {
+        // update
+        const dx = player.x - centerX;
+        const dy = player.y - centerY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const desiredAngle = Math.atan2(dy, dx);
+        const speed = 2.5;
+
+        player.angle += 0.02; // auto-drift
+        player.x = centerX + trackRadius * Math.cos(player.angle);
+        player.y = centerY + trackRadius * Math.sin(player.angle);
+
+        // save position to ghost path
+        if (!ghostPaths[laps]) ghostPaths[laps] = [];
+        ghostPaths[laps].push({ x: player.x, y: player.y });
+
+        // lap detection
+        if (Math.abs(player.angle + Math.PI / 2) < 0.05 && player.vx > 0) {
+          if (laps < 5) {
+            laps++;
+            lapCounter.textContent = `Lap: ${laps}/5`;
+            if (laps > 0 && ghostPaths[laps - 1]) {
+              ghosts.push({ path: ghostPaths[laps - 1], pathIndex: 0, x: 0, y: 0 });
+            }
+          } else {
+            messageText.textContent = "You Win!";
+            messageBox.style.display = "block";
+            started = false;
+          }
+        }
+
+        updateGhosts();
+      }
+
+      drawTrack();
+      drawCar(player.x, player.y, "#0f0");
+      drawGhosts();
+
+      if (started && detectCrash()) {
+        messageText.textContent = "Crashed!";
+        messageBox.style.display = "block";
+        started = false;
+      }
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    startButton.addEventListener("click", () => {
+      if (!started) {
+        resetGame();
+        started = true;
+      }
+    });
+
+    musicToggle.addEventListener("click", () => {
+      musicOn = !musicOn;
+      if (musicOn) {
+        bgMusic.play();
+        musicToggle.textContent = "Music: On";
+      } else {
+        bgMusic.pause();
+        musicToggle.textContent = "Music: Off";
+      }
+    });
+
+    resetGame();
+    gameLoop();
+  </script>
+</body>
+</html>
